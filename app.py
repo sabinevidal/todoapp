@@ -26,26 +26,27 @@ class TodoList(db.Model):
     todos = db.relationship('Todo', backref='list', lazy=True)
 
 
-@app.route('/todos/create', methods=['POST'])
-def create_todo():
-    error = False
+@app.route('/lists/<list_id>/todos/create', methods=['POST'])
+def create_todo(list_id):
     body = {}
+    error = False
     try:
+        print(list_id)
         description = request.get_json()['description']
-        todo = Todo(description=description, completed=False)
+        todo = Todo(description=description, completed=False, list_id=list_id)
         db.session.add(todo)
         db.session.commit()
         body['id'] = todo.id
-        body['completed'] = todo.completed
-        body['description'] = todo.description 
+        body['completed'] = todo.completed 
+        body['description'] = description
     except:
         db.session.rollback()
-        error = True
+        error=True
         print(sys.exc_info())
     finally:
         db.session.close()
     if error:
-        abort (400)
+        abort(400)
     if not error:
         return jsonify(body)
 
@@ -76,8 +77,34 @@ def delete_todo(todo_id):
 
 @app.route('/lists/<list_id>')
 def get_list_todos(list_id):
-    return render_template('index.html', data=Todo.query.filter_by(list_id=list_id).order_by('id').all()
+    return render_template('index.html', 
+    lists=TodoList.query.all(),
+    active_list=TodoList.query.get(list_id),
+    todos=Todo.query.filter_by(list_id=list_id).order_by('id').all()
 )
+
+@app.route('/lists/create', methods=['POST'])
+def create_list():
+    error = False
+    body = {}
+    try:
+        description = request.get_json()['description']
+        todo = TodoList(name=description)
+        db.session.add(todo)
+        db.session.commit()
+        body['id'] = todo.id
+        body['description'] = description 
+    except:
+        db.session.rollback()
+        error = True
+        print(sys.exc_info())
+    finally:
+        db.session.close()
+    if error:
+        abort (400)
+    if not error:
+        return jsonify(body)
+
 
 @app.route('/')
 def index():
